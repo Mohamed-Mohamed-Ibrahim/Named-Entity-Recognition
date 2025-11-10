@@ -1,0 +1,86 @@
+{
+  "builder_name": "parquet",
+  "citation": "",
+  "config_name": "default",
+  "dataset_name": "conll2003",
+  "dataset_size": 10365662,
+  "description": "",
+  "download_checksums": {
+    "hf://datasets/lhoestq/conll2003@19edcb426bfd625c275c17b9a99b2239243f4377/data/train-00000-of-00001.parquet": {
+      "num_bytes": 1072318,
+      "checksum": null
+    },
+    "hf://datasets/lhoestq/conll2003@19edcb426bfd625c275c17b9a99b2239243f4377/data/validation-00000-of-00001.parquet": {
+      "num_bytes": 280518,
+      "checksum": null
+    },
+    "hf://datasets/lhoestq/conll2003@19edcb426bfd625c275c17b9a99b2239243f4377/data/test-00000-of-00001.parquet": {
+      "num_bytes": 258849,
+      "checksum": null
+    }
+  },
+  "download_size": 1611685,
+  "features": {
+    "id": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "tokens": {
+      "feature": {
+        "dtype": "string",
+        "_type": "Value"
+      },
+      "_type": "List"
+    },
+    "pos_tags": {
+      "feature": {
+        "dtype": "int64",
+        "_type": "Value"
+      },
+      "_type": "List"
+    },
+    "chunk_tags": {
+      "feature": {
+        "dtype": "int64",
+        "_type": "Value"
+      },
+      "_type": "List"
+    },
+    "ner_tags": {
+      "feature": {
+        "dtype": "int64",
+        "_type": "Value"
+      },
+      "_type": "List"
+    }
+  },
+  "homepage": "",
+  "license": "",
+  "size_in_bytes": 11977347,
+  "splits": {
+    "train": {
+      "name": "train",
+      "num_bytes": 7007707,
+      "num_examples": 14041,
+      "dataset_name": "conll2003"
+    },
+    "validation": {
+      "name": "validation",
+      "num_bytes": 1758486,
+      "num_examples": 3250,
+      "dataset_name": "conll2003"
+    },
+    "test": {
+      "name": "test",
+      "num_bytes": 1599469,
+      "num_examples": 3453,
+      "dataset_name": "conll2003"
+    }
+  },
+  "version": {
+    "version_str": "0.0.0",
+    "major": 0,
+    "minor": 0,
+    "patch": 0
+  }
+}

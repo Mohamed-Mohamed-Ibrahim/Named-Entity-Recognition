@@ -39,17 +39,21 @@ class HMMCustom:
                 self.emissionprob_[y[idx][i], word] += 1
         with np.errstate(divide='ignore', invalid='ignore'):
             self.startprob_ /= np.sum(self.startprob_)
-            self.emissionprob_ /= ( np.sum(self.transmat_, axis=1).reshape(-1, 1) + self.startprob_.reshape(-1, 1) )
+            self.emissionprob_ /= ( np.sum(self.emissionprob_, axis=1).reshape(-1, 1) )
+            # self.emissionprob_ /= ( np.sum(self.transmat_, axis=1).reshape(-1, 1) + self.startprob_.reshape(-1, 1) )
             self.transmat_ /= np.sum(self.transmat_, axis=1).reshape(-1, 1)
             # self.transmat_ /= np.sum(self.transmat_, axis=1)[:, np.newaxis]
         self.transmat_ = np.nan_to_num(self.transmat_)
         self.emissionprob_ = np.nan_to_num(self.emissionprob_)
 
         # print(self.startprob_)
+        # print()
         # for x in self.transmat_:
         #     print(x)
+        # print()
         # for x in self.emissionprob_:
         #     print(x)
+        # print()
 
 
     def decode(self, X):
@@ -85,9 +89,12 @@ if __name__ == '__main__':
     # dataset.save_to_disk("conll2003")
     # ---------------------------------------------------------
 
+    n_sampels = 3
+    random_state = 42
+
     dataset = load_from_disk("conll2003")
-    nerTags = dataset["validation"][:3]['ner_tags']
-    tokens = dataset["validation"][:3]['tokens']
+    nerTags = dataset["validation"][:n_sampels]['ner_tags']
+    tokens = dataset["validation"][:n_sampels]['tokens']
     states = ["Other", "B-PER", "I-PER", "B-ORG", "I-ORG", "B-LOC", "I-LOC", "B-MISC", "I-MISC"]
     observations = set()
     maxLen = 0
@@ -108,9 +115,9 @@ if __name__ == '__main__':
         encoded_tokens = le.transform(token)
         X.append(encoded_tokens.tolist())
 
-    # print(X)
-    # print(tokens)
-    # print(nerTags)
+    print(X)
+    print(tokens)
+    print(nerTags)
 
     n_components = len(states)
     n_observations = len(observations)
@@ -125,7 +132,9 @@ if __name__ == '__main__':
     # Map observations to numerical indices (0 for Dry, 1 for Wet)
     # observation_sequence = np.array([[0], [1], [0], [1], [0]])
     observation_sequence = np.array([2, 2, 2, 4])
+    ture_observation_sequence = le.inverse_transform(observation_sequence)
 
     log_likelihood, hidden_states = model.decode(observation_sequence)
     print("Log-likelihood of observations:", log_likelihood)
     print("Most likely hidden states sequence:", [states[s] for s in hidden_states])
+    print("Observation sequence:", ture_observation_sequence)

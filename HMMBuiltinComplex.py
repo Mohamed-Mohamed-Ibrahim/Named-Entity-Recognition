@@ -27,8 +27,9 @@ for token in tokens:
     encoded_tokens = le.transform(token)
     X.append(np.pad(encoded_tokens, (0, maxLen-len(encoded_tokens)), mode='constant', constant_values=0).tolist())
 
-# print(X)
-# print(tokens)
+print(X)
+print(tokens)
+print(nerTags)
 
 n_components = len(states)
 n_observations = len(observations)
@@ -41,7 +42,8 @@ model.fit(X)
 
 # Example: Dry, Wet, Dry
 # Map observations to numerical indices (0 for Dry, 1 for Wet)
-observation_sequence = np.array([[0], [1], [0], [1], [0]])
+# observation_sequence = np.array([[0], [1], [0], [1], [0]])
+observation_sequence = np.array([[2], [2], [2], [4]])
 
 log_likelihood, hidden_states = model.decode(observation_sequence)
 print("Log-likelihood of observations:", log_likelihood)

@@ -5,8 +5,8 @@ from pandas.core.common import random_state
 from sklearn.preprocessing import LabelEncoder
 
 dataset = load_from_disk("conll2003")
-nerTags = dataset["validation"][:3]['ner_tags']
-tokens = dataset["validation"][:3]['tokens']
+nerTags = dataset["validation"][:10]['ner_tags']
+tokens = dataset["validation"][:10]['tokens']
 states = ["Other", "B-PER", "I-PER", "B-ORG", "I-ORG", "B-LOC", "I-LOC", "B-MISC", "I-MISC"]
 observations = set()
 maxLen = 0
@@ -39,6 +39,12 @@ n_observations = len(observations)
 model = hmm.CategoricalHMM(n_components=n_components, random_state=42)
 
 model.fit(X)
+
+print("______________________")
+print(model.startprob_)
+print("______________________")
+# print(model.transmat_)
+# print(model.emissionprob_)
 
 # Example: Dry, Wet, Dry
 # Map observations to numerical indices (0 for Dry, 1 for Wet)

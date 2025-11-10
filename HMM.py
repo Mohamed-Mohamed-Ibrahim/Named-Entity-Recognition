@@ -48,9 +48,9 @@ class HMMCustom:
 
         # print(self.startprob_)
         # print()
-        # for x in self.transmat_:
-        #     print(x)
-        # print()
+        for x in self.transmat_:
+            print(x)
+        print()
         # for x in self.emissionprob_:
         #     print(x)
         # print()
@@ -61,7 +61,7 @@ class HMMCustom:
         log_likelihood, hidden_states = 0, []
         prev_state = None
 
-        # Greedy for now
+        # Greedy for now -> very bad
         for i, word in enumerate(X):
             score = -1
             if i == 0:
@@ -89,12 +89,12 @@ if __name__ == '__main__':
     # dataset.save_to_disk("conll2003")
     # ---------------------------------------------------------
 
-    n_sampels = 3
+    n_sampels = 300
     random_state = 42
 
     dataset = load_from_disk("conll2003")
-    nerTags = dataset["validation"][:n_sampels]['ner_tags']
-    tokens = dataset["validation"][:n_sampels]['tokens']
+    nerTags = dataset["validation"][100:n_sampels]['ner_tags']
+    tokens = dataset["validation"][100:n_sampels]['tokens']
     states = ["Other", "B-PER", "I-PER", "B-ORG", "I-ORG", "B-LOC", "I-LOC", "B-MISC", "I-MISC"]
     observations = set()
     maxLen = 0
@@ -115,8 +115,8 @@ if __name__ == '__main__':
         encoded_tokens = le.transform(token)
         X.append(encoded_tokens.tolist())
 
-    print(X)
-    print(tokens)
+    # print(X)
+    # print(tokens)
     print(nerTags)
 
     n_components = len(states)
@@ -131,7 +131,7 @@ if __name__ == '__main__':
     # Example: Dry, Wet, Dry
     # Map observations to numerical indices (0 for Dry, 1 for Wet)
     # observation_sequence = np.array([[0], [1], [0], [1], [0]])
-    observation_sequence = np.array([2, 2, 2, 4])
+    observation_sequence = np.array([2, 2, 0, 4])
     ture_observation_sequence = le.inverse_transform(observation_sequence)
 
     log_likelihood, hidden_states = model.decode(observation_sequence)

@@ -37,6 +37,14 @@ class HMMCustom:
 
                 # Get emission prob
                 self.emissionprob_[y[idx][i], word] += 1
+        with np.errstate(divide='ignore', invalid='ignore'):
+            self.startprob_ /= np.sum(self.startprob_)
+            self.emissionprob_ /= ( np.sum(self.transmat_, axis=1).reshape(-1, 1) + self.startprob_.reshape(-1, 1) )
+            self.transmat_ /= np.sum(self.transmat_, axis=1).reshape(-1, 1)
+            # self.transmat_ /= np.sum(self.transmat_, axis=1)[:, np.newaxis]
+        self.transmat_ = np.nan_to_num(self.transmat_)
+        self.emissionprob_ = np.nan_to_num(self.emissionprob_)
+
         # print(self.startprob_)
         # for x in self.transmat_:
         #     print(x)
@@ -66,7 +74,9 @@ class HMMCustom:
                         prev_state = state
 
             hidden_states.append(prev_state)
-            log_likelihood += np.log(score)
+
+            log_likelihood += score
+            print(score, prev_state)
         return log_likelihood, hidden_states
 
 
@@ -98,14 +108,14 @@ if __name__ == '__main__':
         encoded_tokens = le.transform(token)
         X.append(encoded_tokens.tolist())
 
-    print(X)
+    # print(X)
     # print(tokens)
-    print(nerTags)
+    # print(nerTags)
 
     n_components = len(states)
     n_observations = len(observations)
-    print(n_components)
-    print(n_observations)
+    # print(n_components)
+    # print(n_observations)
 
     model = HMMCustom(n_components=n_components, n_observations=n_observations)
 
@@ -114,10 +124,8 @@ if __name__ == '__main__':
     # Example: Dry, Wet, Dry
     # Map observations to numerical indices (0 for Dry, 1 for Wet)
     # observation_sequence = np.array([[0], [1], [0], [1], [0]])
-    observation_sequence = np.array([0, 1, 2, 4])
+    observation_sequence = np.array([2, 2, 2, 4])
 
     log_likelihood, hidden_states = model.decode(observation_sequence)
-    for x in hidden_states:
-        print(x)
     print("Log-likelihood of observations:", log_likelihood)
     print("Most likely hidden states sequence:", [states[s] for s in hidden_states])

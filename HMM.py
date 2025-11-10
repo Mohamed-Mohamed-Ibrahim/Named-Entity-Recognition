@@ -37,6 +37,11 @@ class HMMCustom:
 
                 # Get emission prob
                 self.emissionprob_[y[idx][i], word] += 1
+        # print(self.startprob_)
+        # for x in self.transmat_:
+        #     print(x)
+        # for x in self.emissionprob_:
+        #     print(x)
 
 
     def decode(self, X):
@@ -46,23 +51,22 @@ class HMMCustom:
 
         # Greedy for now
         for i, word in enumerate(X):
-            log_score = 0
+            score = -1
             if i == 0:
                 for state in range(self.n_components_):
-                    res = self.startprob_[state]*self.emissionprob_[state][word]
-                    log_score_idx = np.argmax(res)
-                    log_score += np.log(res[log_score_idx])
-                    hidden_states.append(state)
-                    prev_state = state
+                    prob = self.startprob_[state]*self.emissionprob_[state][word]
+                    if prob > score:
+                        score = prob
+                        prev_state = state
             else:
                 for state in range(self.n_components_):
-                    res = self.startprob_[state][prev_state]*self.emissionprob_[state][word]
-                    log_score_idx = np.argmax(res)
-                    log_score += np.log(res[log_score_idx])
-                    hidden_states.append(state)
-                    prev_state = state
+                    prob = self.transmat_[state][prev_state]*self.emissionprob_[state][word]
+                    if prob > score:
+                        score = prob
+                        prev_state = state
 
-            log_likelihood += log_score
+            hidden_states.append(prev_state)
+            log_likelihood += np.log(score)
         return log_likelihood, hidden_states
 
 
@@ -92,15 +96,16 @@ if __name__ == '__main__':
     X = []
     for token in tokens:
         encoded_tokens = le.transform(token)
-        X.append(np.pad(encoded_tokens, (0, maxLen - len(encoded_tokens)), mode='constant', constant_values=0).tolist())
+        X.append(encoded_tokens.tolist())
 
-    # print(X)
+    print(X)
     # print(tokens)
+    print(nerTags)
 
     n_components = len(states)
     n_observations = len(observations)
-    # print(n_components)
-    # print(n_observations)
+    print(n_components)
+    print(n_observations)
 
     model = HMMCustom(n_components=n_components, n_observations=n_observations)
 
@@ -108,8 +113,11 @@ if __name__ == '__main__':
 
     # Example: Dry, Wet, Dry
     # Map observations to numerical indices (0 for Dry, 1 for Wet)
-    observation_sequence = np.array([[0], [1], [0], [1], [0]])
+    # observation_sequence = np.array([[0], [1], [0], [1], [0]])
+    observation_sequence = np.array([0, 1, 2, 4])
 
     log_likelihood, hidden_states = model.decode(observation_sequence)
+    for x in hidden_states:
+        print(x)
     print("Log-likelihood of observations:", log_likelihood)
     print("Most likely hidden states sequence:", [states[s] for s in hidden_states])

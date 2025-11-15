@@ -4,10 +4,11 @@ from sklearn.preprocessing import LabelEncoder
 
 
 class HMMCustom:
-    def __init__(self, n_components, n_observations, startprob=None, transmat=None, emissionprob=None):
+    def __init__(self, n_components, n_observations, startprob=None, transmat=None, emissionprob=None, strategy="viterbi"):
 
         self.n_components_ = n_components
         self.n_observations_ = n_observations
+        self.strategy = strategy
 
         if startprob is None:
             self.startprob_ = np.zeros(n_components)
@@ -55,24 +56,21 @@ class HMMCustom:
         #     print(x)
         # print()
 
-
-    def decode(self, X):
-
+    def _greedy(self, X):
         log_likelihood, hidden_states = 0, []
         prev_state = None
 
-        # Greedy for now -> very bad
         for i, word in enumerate(X):
             score = -1
             if i == 0:
                 for state in range(self.n_components_):
-                    prob = self.startprob_[state]*self.emissionprob_[state][word]
+                    prob = self.startprob_[state] * self.emissionprob_[state][word]
                     if prob > score:
                         score = prob
                         prev_state = state
             else:
                 for state in range(self.n_components_):
-                    prob = self.transmat_[state][prev_state]*self.emissionprob_[state][word]
+                    prob = self.transmat_[state][prev_state] * self.emissionprob_[state][word]
                     if prob > score:
                         score = prob
                         prev_state = state
@@ -80,7 +78,19 @@ class HMMCustom:
             hidden_states.append(prev_state)
 
             log_likelihood += score
-            print(score, prev_state)
+            # print(score, prev_state)
+
+        return log_likelihood, hidden_states
+
+    
+
+    def decode(self, X):
+
+        if self.strategy == "viterbi":
+            return self._viterbi(X)
+        elif self.strategy == "greedy":
+            return self._greedy(X)
+
         return log_likelihood, hidden_states
 
 

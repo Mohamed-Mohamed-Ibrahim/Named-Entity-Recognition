@@ -93,10 +93,10 @@ class HMMCustom:
 
     def _viterbi(self, X):
         log_likelihood, hidden_states = 0, []
-        prev_state = None
 
         n_steps = len(X)
         m = np.zeros((self.n_components_, n_steps))
+        parent = np.ones((self.n_components_, n_steps), dtype=int)
 
         for i, word in enumerate(X):
             if i == 0:
@@ -104,7 +104,7 @@ class HMMCustom:
                     # print(self.startprob_[state], self.emissionprob_[state][word])
                     prob = self.startprob_[state] * self.emissionprob_[state][word]
                     if prob > m[state, i]:
-                        prev_state = state
+                        parent[state, i] = state
                         m[state, i] = prob
             else:
                 for s1 in range(self.n_components_):        # prev state
@@ -113,16 +113,32 @@ class HMMCustom:
                         prob = self.transmat_[s2, s1] * self.emissionprob_[s2, word] * m[s1, i-1]
 
                         if prob > m[s2, i]:
-                            prev_state = s2
+                            parent[s2, i] = s1
                             m[s2, i] = prob
-            print()
-            for x in m:
-                print(x)
 
-            hidden_states.append(prev_state)
-            log_likelihood += m[prev_state, i]
+        # print()
+        # for x in m:
+        #     print(x)
+        # print()
+        # for x in parent:
+        #     print(x)
 
-        return log_likelihood, hidden_states
+        mostLikelyStateIdx = np.argmax(m[:, -1])
+        hidden_states.append(mostLikelyStateIdx)
+        log_likelihood += m[mostLikelyStateIdx, -1]
+        i = n_steps - 2
+
+        while i > 0:
+            hidden_states.append(parent[mostLikelyStateIdx, i+1])
+            log_likelihood += m[parent[mostLikelyStateIdx, i+1], i]
+            mostLikelyStateIdx = hidden_states[-1]
+            i -= 1
+
+        hidden_states.append(parent[mostLikelyStateIdx, 1])
+        log_likelihood += m[hidden_states[-1], 0]
+
+
+        return log_likelihood, reversed(hidden_states)
 
     def decode(self, X):
 
@@ -137,12 +153,14 @@ if __name__ == '__main__':
     # dataset.save_to_disk("conll2003")
     # ---------------------------------------------------------
 
-    n_sampels = 250
+    n_sampels = 150
     random_state = 42
 
     dataset = load_from_disk("conll2003")
-    nerTags = dataset["validation"][100:n_sampels]['ner_tags']
-    tokens = dataset["validation"][100:n_sampels]['tokens']
+    # nerTags = dataset["validation"][100:n_sampels]['ner_tags']
+    nerTags = dataset["validation"][:]['ner_tags']
+    # tokens = dataset["validation"][100:n_sampels]['tokens']
+    tokens = dataset["validation"][:]['tokens']
     states = ["Other", "B-PER", "I-PER", "B-ORG", "I-ORG", "B-LOC", "I-LOC", "B-MISC", "I-MISC"]
     observations = set()
     maxLen = 0

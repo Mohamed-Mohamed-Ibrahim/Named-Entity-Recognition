@@ -1,8 +1,9 @@
 from HMM import HMMCustom
 import numpy as np
 
-# NOTE: The LabelEncoder, load_from_disk, and CONLL-2003 specific parts are REMOVED
-# because they conflict with the explicit HMM parameters you provided earlier.
+import numpy as np
+from sklearn.preprocessing import LabelEncoder
+# Assume HMMCustom class is defined elsewhere and handles fit/decode.
 
 # --- HMM PARAMETERS FOR SENTIMENT TAGGING PROBLEM ---
 
@@ -12,10 +13,18 @@ tag_to_index = {tag: i for i, tag in enumerate(TAGS)}
 N_COMPONENTS = len(TAGS) # 3
 
 # 2. Observations (Words from Table 1)
+# IMPORTANT: The order of this list MUST match the column order in Table 1
 OBSERVATIONS = [
     'and', 'awful', 'bitter', 'bread', 'coffee', 'delicious', 'smells', 'the', 'was'
 ]
-word_to_index = {word: i for i, word in enumerate(OBSERVATIONS)}
+
+# Use LabelEncoder to map words to indices (0 through 8)
+le = LabelEncoder()
+# Fit transforms the observations based on the order of the list
+le.fit(OBSERVATIONS)
+
+# Verify the mapping (optional, but good for debugging)
+# print(f"coffee index: {le.transform(['coffee'])[0]}") # Should be 4
 N_OBSERVATIONS = len(OBSERVATIONS) # 9
 
 # Initial Probabilities (Table 2, row '∅')
@@ -30,8 +39,9 @@ transmat = np.array([
 ])
 
 # Emission Probabilities (Table 1)
-# Rows: Tag (+, -, O), Columns: Word (and, awful, bitter, bread, coffee, delicious, smells, the, was)
+# Rows: Tag (+, -, O), Columns: Word (order matches OBSERVATIONS list)
 emissionprob = np.array([
+    # and awful bitter bread coffee delicious smells the was
     [0.0, 0.0, 0.1, 0.05, 0.05, 0.7, 0.05, 0.0, 0.05], # +
     [0.0, 0.7, 0.15, 0.0, 0.05, 0.0, 0.05, 0.0, 0.05], # -
     [0.2, 0.05, 0.05, 0.1, 0.1, 0.05, 0.05, 0.2, 0.2]  # O
@@ -39,40 +49,31 @@ emissionprob = np.array([
 
 # --- HMM INITIALIZATION ---
 
-# Create the HMM model using the provided parameters
 model = HMMCustom(
     n_components=N_COMPONENTS,
     n_observations=N_OBSERVATIONS,
     startprob=startprob,
     transmat=transmat,
-    emissionprob=emissionprob,
-    # strategy="greedy"
+    emissionprob=emissionprob
 )
-
-# NOTE: Since all parameters are explicitly defined, model.fit(X, nerTags) is not needed
-# and is skipped, as the parameters are set in the constructor.
 
 # --- DECODING FOR {coffee, smells, bitter} (Problem b) ---
 
-# Map observations to numerical indices (4=coffee, 6=smells, 2=bitter)
-observation_sequence = np.array([
-    word_to_index['coffee'],
-    word_to_index['smells'],
-    word_to_index['bitter']
-])
-# Convert indices back to words for printing
-ture_observation_sequence = [OBSERVATIONS[i] for i in observation_sequence]
+# Use the fitted LabelEncoder to transform the word sequence
+word_sequence_b = ['coffee', 'bitter', 'smells', 'bitter']
+word_sequence_b = ['the', 'bread', 'smells', 'delicious']
+observation_sequence = le.transform(word_sequence_b)
+
+# The resulting array is: [4, 6, 2] (matching the previous manual mapping)
+
+# Convert indices back to words for printing (using inverse_transform)
+ture_observation_sequence = le.inverse_transform(observation_sequence)
 
 
 # Run Viterbi decoding (finds the MOST likely sequence)
-# If your HMMCustom class has the decode method added from the previous response:
 log_likelihood, hidden_states = model.decode(observation_sequence)
 
+print("\n--- HMM Problem (b) Test with LabelEncoder ---")
 print("Observation sequence:", ture_observation_sequence)
 print("Log-likelihood of observations (MOST LIKELY PATH):", log_likelihood)
 print("Most likely hidden states sequence:", [TAGS[s] for s in hidden_states])
-# The most likely sequence for {coffee, smells, bitter} is: (O, O, O)
-# The probability calculation (not required by the prompt, but useful for testing):
-# P(O) * P(O|O) * P(O|O) * P(coffee|O) * P(smells|O) * P(bitter|O)
-# = 0.4 * 0.6 * 0.6 * 0.1 * 0.05 * 0.05 = 0.000036
-# log(0.000036) approx -10.2319

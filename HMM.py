@@ -4,7 +4,8 @@ from sklearn.preprocessing import LabelEncoder
 
 
 class HMMCustom:
-    def __init__(self, n_components, n_observations, startprob=None, transmat=None, emissionprob=None, strategy="viterbi"):
+    def __init__(self, n_components, n_observations, startprob=None, transmat=None, emissionprob=None,
+                 strategy="viterbi"):
 
         self.n_components_ = n_components
         self.n_observations_ = n_observations
@@ -34,7 +35,7 @@ class HMMCustom:
                     self.startprob_[y[idx][i]] += 1
                 # Get transition prob
                 else:
-                    self.transmat_[y[idx][i], y[idx][i-1]] += 1
+                    self.transmat_[y[idx][i], y[idx][i - 1]] += 1
 
                 # Get emission prob
                 self.emissionprob_[y[idx][i], word] += 1
@@ -49,7 +50,7 @@ class HMMCustom:
 
         with np.errstate(divide='ignore', invalid='ignore'):
             self.startprob_ /= np.sum(self.startprob_)
-            self.emissionprob_ /= ( np.sum(self.emissionprob_, axis=1).reshape(-1, 1) )
+            self.emissionprob_ /= (np.sum(self.emissionprob_, axis=1).reshape(-1, 1))
             # self.emissionprob_ /= ( np.sum(self.transmat_, axis=1).reshape(-1, 1) + self.startprob_.reshape(-1, 1) )
             self.transmat_ /= np.sum(self.transmat_, axis=1).reshape(-1, 1)
             # self.transmat_ /= np.sum(self.transmat_, axis=1)[:, np.newaxis]
@@ -95,6 +96,10 @@ class HMMCustom:
         log_likelihood, hidden_states = 0, []
 
         n_steps = len(X)
+
+        if n_steps == 0:
+            return log_likelihood, hidden_states
+
         m = np.zeros((self.n_components_, n_steps))
         parent = np.ones((self.n_components_, n_steps), dtype=int)
 
@@ -107,10 +112,10 @@ class HMMCustom:
                         parent[state, i] = state
                         m[state, i] = prob
             else:
-                for s1 in range(self.n_components_):        # prev state
-                    for s2 in range(self.n_components_):    # cur  state
+                for s1 in range(self.n_components_):  # prev state
+                    for s2 in range(self.n_components_):  # cur  state
                         # print(self.transmat_[s2, s1], self.emissionprob_[s2, word], m[s1, i-1])
-                        prob = self.transmat_[s2, s1] * self.emissionprob_[s2, word] * m[s1, i-1]
+                        prob = self.transmat_[s2, s1] * self.emissionprob_[s2, word] * m[s1, i - 1]
 
                         if prob > m[s2, i]:
                             parent[s2, i] = s1
@@ -128,15 +133,17 @@ class HMMCustom:
         log_likelihood += m[mostLikelyStateIdx, -1]
         i = n_steps - 2
 
-        while i > 0:
-            hidden_states.append(parent[mostLikelyStateIdx, i+1])
-            log_likelihood += m[parent[mostLikelyStateIdx, i+1], i]
-            mostLikelyStateIdx = hidden_states[-1]
-            i -= 1
-
-        hidden_states.append(parent[mostLikelyStateIdx, 1])
-        log_likelihood += m[hidden_states[-1], 0]
-
+        if n_steps > 2:
+            while i > 0:
+                # put parent of state i
+                hidden_states.append(parent[mostLikelyStateIdx, i + 1])
+                # add likelihood of state i
+                log_likelihood += m[parent[mostLikelyStateIdx, i + 1], i]
+                mostLikelyStateIdx = hidden_states[-1]
+                i -= 1
+        if n_steps > 1:
+            hidden_states.append(parent[mostLikelyStateIdx, 1])
+            log_likelihood += m[hidden_states[-1], 0]
 
         return log_likelihood, reversed(hidden_states)
 
@@ -146,7 +153,6 @@ class HMMCustom:
             return self._viterbi(X)
         elif self.strategy == "greedy":
             return self._greedy(X)
-
 
 if __name__ == '__main__':
     # dataset = load_dataset("lhoestq/conll2003")

@@ -38,6 +38,15 @@ class HMMCustom:
 
                 # Get emission prob
                 self.emissionprob_[y[idx][i], word] += 1
+
+        # Get start & transition & emission probs
+        for i in range(self.n_components_):
+            self.startprob_[i] += 1
+            for j in range(self.n_components_):
+                self.transmat_[i, j] += 1
+            for j in range(self.n_observations_):
+                self.emissionprob_[i, j] += 1
+
         with np.errstate(divide='ignore', invalid='ignore'):
             self.startprob_ /= np.sum(self.startprob_)
             self.emissionprob_ /= ( np.sum(self.emissionprob_, axis=1).reshape(-1, 1) )
@@ -49,9 +58,9 @@ class HMMCustom:
 
         # print(self.startprob_)
         # print()
-        for x in self.transmat_:
-            print(x)
-        print()
+        # for x in self.transmat_:
+        #     print(x)
+        # print()
         # for x in self.emissionprob_:
         #     print(x)
         # print()
@@ -82,7 +91,38 @@ class HMMCustom:
 
         return log_likelihood, hidden_states
 
-    
+    def _viterbi(self, X):
+        log_likelihood, hidden_states = 0, []
+        prev_state = None
+
+        n_steps = len(X)
+        m = np.zeros((self.n_components_, n_steps))
+
+        for i, word in enumerate(X):
+            if i == 0:
+                for state in range(self.n_components_):
+                    # print(self.startprob_[state], self.emissionprob_[state][word])
+                    prob = self.startprob_[state] * self.emissionprob_[state][word]
+                    if prob > m[state, i]:
+                        prev_state = state
+                        m[state, i] = prob
+            else:
+                for s1 in range(self.n_components_):        # prev state
+                    for s2 in range(self.n_components_):    # cur  state
+                        # print(self.transmat_[s2, s1], self.emissionprob_[s2, word], m[s1, i-1])
+                        prob = self.transmat_[s2, s1] * self.emissionprob_[s2, word] * m[s1, i-1]
+
+                        if prob > m[s2, i]:
+                            prev_state = s2
+                            m[s2, i] = prob
+            print()
+            for x in m:
+                print(x)
+
+            hidden_states.append(prev_state)
+            log_likelihood += m[prev_state, i]
+
+        return log_likelihood, hidden_states
 
     def decode(self, X):
 
@@ -91,15 +131,13 @@ class HMMCustom:
         elif self.strategy == "greedy":
             return self._greedy(X)
 
-        return log_likelihood, hidden_states
-
 
 if __name__ == '__main__':
     # dataset = load_dataset("lhoestq/conll2003")
     # dataset.save_to_disk("conll2003")
     # ---------------------------------------------------------
 
-    n_sampels = 300
+    n_sampels = 250
     random_state = 42
 
     dataset = load_from_disk("conll2003")
@@ -112,7 +150,7 @@ if __name__ == '__main__':
     for token in tokens:
         maxLen = max(maxLen, len(token))
         for word in token:
-            observations.add(word)
+            observations.add(word.lower())
     observations = list(sorted(observations))
     # print("Observations:", observations)
 
@@ -122,7 +160,7 @@ if __name__ == '__main__':
 
     X = []
     for token in tokens:
-        encoded_tokens = le.transform(token)
+        encoded_tokens = le.transform([word.lower() for word in token])
         X.append(encoded_tokens.tolist())
 
     # print(X)
@@ -141,7 +179,7 @@ if __name__ == '__main__':
     # Example: Dry, Wet, Dry
     # Map observations to numerical indices (0 for Dry, 1 for Wet)
     # observation_sequence = np.array([[0], [1], [0], [1], [0]])
-    observation_sequence = np.array([2, 2, 0, 4])
+    observation_sequence = np.array([150, 211, 111, 10])
     ture_observation_sequence = le.inverse_transform(observation_sequence)
 
     log_likelihood, hidden_states = model.decode(observation_sequence)

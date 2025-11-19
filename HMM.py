@@ -2,157 +2,107 @@ from datasets import load_dataset, load_from_disk
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
 
+import numpy as np
+
 
 class HMMCustom:
-    def __init__(self, n_components, n_observations, startprob=None, transmat=None, emissionprob=None,
-                 strategy="viterbi"):
-
+    def __init__(self, n_components, n_observations, strategy="viterbi"):
         self.n_components_ = n_components
         self.n_observations_ = n_observations
         self.strategy = strategy
 
-        if startprob is None:
-            self.startprob_ = np.zeros(n_components)
-        else:
-            self.startprob_ = startprob
-        if transmat is None:
-            self.transmat_ = np.zeros((n_components, n_components))
-        else:
-            self.transmat_ = transmat
-        if emissionprob is None:
-            self.emissionprob_ = np.zeros((n_components, n_observations))
-        else:
-            self.emissionprob_ = emissionprob
+        # Initialize with small epsilon to avoid log(0) later
+        self.startprob_ = np.zeros(n_components)
+        self.transmat_ = np.zeros((n_components, n_components))
+        self.emissionprob_ = np.zeros((n_components, n_observations))
 
     def fit(self, X, y):
+        # X: List of lists (sentences of observations)
+        # y: List of lists (corresponding hidden states)
 
-        # Get start & transition & emission probs
+        # 1. Count occurrences
         for idx, sentence in enumerate(X):
             for i, word in enumerate(sentence):
+                state = y[idx][i]
 
-                # Get start prob
+                # Emission: State -> Word
+                self.emissionprob_[state, word] += 1
+
                 if i == 0:
-                    self.startprob_[y[idx][i]] += 1
-                # Get transition prob
+                    # Start Probability
+                    self.startprob_[state] += 1
                 else:
-                    self.transmat_[y[idx][i], y[idx][i - 1]] += 1
+                    # Transition: Previous State -> Current State
+                    prev_state = y[idx][i - 1]
+                    self.transmat_[prev_state, state] += 1
 
-                # Get emission prob
-                self.emissionprob_[y[idx][i], word] += 1
+                    # 2. Add Laplace Smoothing (add 1) to avoid zero division
+        self.startprob_ += 1
+        self.transmat_ += 1
+        self.emissionprob_ += 1
 
-        # Get start & transition & emission probs
-        for i in range(self.n_components_):
-            self.startprob_[i] += 1
-            for j in range(self.n_components_):
-                self.transmat_[i, j] += 1
-            for j in range(self.n_observations_):
-                self.emissionprob_[i, j] += 1
+        # 3. Normalize (probabilities sum to 1)
+        self.startprob_ /= np.sum(self.startprob_)
 
-        with np.errstate(divide='ignore', invalid='ignore'):
-            self.startprob_ /= np.sum(self.startprob_)
-            self.emissionprob_ /= (np.sum(self.emissionprob_, axis=1).reshape(-1, 1))
-            # self.emissionprob_ /= ( np.sum(self.transmat_, axis=1).reshape(-1, 1) + self.startprob_.reshape(-1, 1) )
-            self.transmat_ /= np.sum(self.transmat_, axis=1).reshape(-1, 1)
-            # self.transmat_ /= np.sum(self.transmat_, axis=1)[:, np.newaxis]
-        self.transmat_ = np.nan_to_num(self.transmat_)
-        self.emissionprob_ = np.nan_to_num(self.emissionprob_)
+        # Normalize rows (axis 1) so sum of outgoing probs = 1
+        self.transmat_ /= np.sum(self.transmat_, axis=1, keepdims=True)
+        self.emissionprob_ /= np.sum(self.emissionprob_, axis=1, keepdims=True)
 
-        # print(self.startprob_)
-        # print()
-        # for x in self.transmat_:
-        #     print(x)
-        # print()
-        # for x in self.emissionprob_:
-        #     print(x)
-        # print()
-
-    def _greedy(self, X):
-        log_likelihood, hidden_states = 0, []
-        prev_state = None
-
-        for i, word in enumerate(X):
-            score = -1
-            if i == 0:
-                for state in range(self.n_components_):
-                    prob = self.startprob_[state] * self.emissionprob_[state][word]
-                    if prob > score:
-                        score = prob
-                        prev_state = state
-            else:
-                for state in range(self.n_components_):
-                    prob = self.transmat_[state][prev_state] * self.emissionprob_[state][word]
-                    if prob > score:
-                        score = prob
-                        prev_state = state
-
-            hidden_states.append(prev_state)
-
-            log_likelihood += score
-            # print(score, prev_state)
-
-        return log_likelihood, hidden_states
+        # 4. CONVERT TO LOG SPACE
+        # We store logs so we can add them instead of multiplying
+        with np.errstate(divide='ignore'):
+            self.startprob_ = np.log(self.startprob_)
+            self.transmat_ = np.log(self.transmat_)
+            self.emissionprob_ = np.log(self.emissionprob_)
 
     def _viterbi(self, X):
-        log_likelihood, hidden_states = 0, []
-
         n_steps = len(X)
-
         if n_steps == 0:
-            return log_likelihood, hidden_states
+            return -np.inf, []
 
+        # m stores the max log-probability reaching state s at time t
         m = np.zeros((self.n_components_, n_steps))
-        parent = np.ones((self.n_components_, n_steps), dtype=int)
+        # parent stores the best previous state
+        parent = np.zeros((self.n_components_, n_steps), dtype=int)
 
-        for i, word in enumerate(X):
-            if i == 0:
-                for state in range(self.n_components_):
-                    # print(self.startprob_[state], self.emissionprob_[state][word])
-                    prob = self.startprob_[state] * self.emissionprob_[state][word]
-                    if prob > m[state, i]:
-                        parent[state, i] = state
-                        m[state, i] = prob
-            else:
-                for s1 in range(self.n_components_):  # prev state
-                    for s2 in range(self.n_components_):  # cur  state
-                        # print(self.transmat_[s2, s1], self.emissionprob_[s2, word], m[s1, i-1])
-                        prob = self.transmat_[s2, s1] * self.emissionprob_[s2, word] * m[s1, i - 1]
+        # --- Initialization (Step 0) ---
+        for s in range(self.n_components_):
+            # log(start) + log(emission)
+            m[s, 0] = self.startprob_[s] + self.emissionprob_[s, X[0]]
 
-                        if prob > m[s2, i]:
-                            parent[s2, i] = s1
-                            m[s2, i] = prob
+        # --- Recursion (Forward Step) ---
+        for t in range(1, n_steps):
+            for s in range(self.n_components_):  # Current state
 
-        # print()
-        # for x in m:
-        #     print(x)
-        # print()
-        # for x in parent:
-        #     print(x)
+                # Calculate transition from all previous states (s_prev) to current state (s)
+                # vector operation: m[:, t-1] is all prev path probs
+                # transmat_[:, s] is prob of moving from any prev -> s
+                probs = m[:, t - 1] + self.transmat_[:, s] + self.emissionprob_[s, X[t]]
 
-        mostLikelyStateIdx = np.argmax(m[:, -1])
-        hidden_states.append(mostLikelyStateIdx)
-        log_likelihood += m[mostLikelyStateIdx, -1]
-        i = n_steps - 2
+                # Find max probability and the state that produced it
+                parent[s, t] = np.argmax(probs)
+                m[s, t] = np.max(probs)
 
-        if n_steps > 2:
-            while i > 0:
-                # put parent of state i
-                hidden_states.append(parent[mostLikelyStateIdx, i + 1])
-                # add likelihood of state i
-                log_likelihood += m[parent[mostLikelyStateIdx, i + 1], i]
-                mostLikelyStateIdx = hidden_states[-1]
-                i -= 1
-        if n_steps > 1:
-            hidden_states.append(parent[mostLikelyStateIdx, 1])
-            log_likelihood += m[hidden_states[-1], 0]
+        # --- Termination ---
+        best_path_log_prob = np.max(m[:, -1])
+        last_state = np.argmax(m[:, -1])
 
-        return log_likelihood, reversed(hidden_states)
+        # --- Backtracking (Backward Step) ---
+        best_path = [last_state]
+
+        # Loop backwards from last step down to 1
+        for t in range(n_steps - 1, 0, -1):
+            prev_state = parent[best_path[-1], t]
+            best_path.append(prev_state)
+
+        # Reverse to get correct order
+        return best_path_log_prob, list(reversed(best_path))
 
     def decode(self, X):
-
         if self.strategy == "viterbi":
             return self._viterbi(X)
-        elif self.strategy == "greedy":
-            return self._greedy(X)
+        # Implement greedy similarly using log space if needed
+        return None
 
 if __name__ == '__main__':
     # dataset = load_dataset("lhoestq/conll2003")
